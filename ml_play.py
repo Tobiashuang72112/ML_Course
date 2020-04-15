@@ -7,6 +7,21 @@ from games.arkanoid.communication import ( \
     SceneInfo, GameStatus, PlatformAction
 )
 
+#predictx = (400-y)*(x-prex)*(y-prey)
+def refl(predictx):
+    
+    if(predictx>200):
+        predictx = 200-(predictx-200)
+        refl(predictx)
+    elif(predictx<0):
+        predictx = -predictx
+        refl(predictx)
+    return predictx
+        
+
+
+
+
 def ml_loop():
     """
     The main loop of the machine learning process
@@ -30,7 +45,9 @@ def ml_loop():
     while True:
         # 3.1. Receive the scene information sent from the game process.
         scene_info = comm.get_scene_info()
-
+        Ballx = scene_info.ball[0]
+        Bally = scene_info.ball[1]
+        plate = scene_info.platform[0]
         # 3.2. If the game is over or passed, the game process will reset
         #      the scene and wait for ml process doing resetting job.
         if scene_info.status == GameStatus.GAME_OVER or \
@@ -43,10 +60,30 @@ def ml_loop():
             continue
 
         # 3.3. Put the code here to handle the scene information
-
         # 3.4. Send the instruction for this frame to the game process
         if not ball_served:
+            BallpreX = scene_info.ball[0]
+            BallpreY = scene_info.ball[1]
             comm.send_instruction(scene_info.frame, PlatformAction.SERVE_TO_LEFT)
             ball_served = True
         else:
-            comm.send_instruction(scene_info.frame, PlatformAction.MOVE_LEFT)
+            
+            if(Bally < BallpreY):
+                if(plate >= 80):
+                    comm.send_instruction(scene_info.frame, PlatformAction.MOVE_LEFT)
+                elif(plate <= 80):
+                    comm.send_instruction(scene_info.frame, PlatformAction.MOVE_RIGHT)
+            elif(Bally > BallpreY):
+                predictx = (400-Bally)*(Ballx-BallpreX)/(Bally-BallpreY) + Ballx
+                predictx = refl(predictx)
+                print(predictx)
+                if(plate >= predictx - 20):
+                    comm.send_instruction(scene_info.frame, PlatformAction.MOVE_LEFT)
+                elif(plate<=predictx - 20):
+                    comm.send_instruction(scene_info.frame, PlatformAction.MOVE_RIGHT)
+                else:
+                    comm.send_instruction(scene_info.frame, PlatformAction.NONE)
+            BallpreX = Ballx
+            BallpreY = Bally
+
+
